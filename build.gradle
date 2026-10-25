@@ -1,0 +1,63 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.16'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'org.flywaydb:flyway-mysql'
+    runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:mysql'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform {
+        excludeTags 'mysql'
+    }
+}
+
+tasks.register('mysqlTest', Test) {
+    description = 'Runs integration tests against an isolated MySQL container.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'mysql'
+    }
+    shouldRunAfter tasks.named('test')
+    // 每次显式执行都连接真实数据库，不复用之前的测试结果。
+    outputs.upToDateWhen { false }
+    outputs.doNotCacheIf('Requires a live MySQL instance') { true }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('mysqlTest')
+}
+
+tasks.withType(Test).configureEach {
+    testLogging {
+        events 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
+}

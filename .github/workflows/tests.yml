@@ -1,0 +1,52 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (${{ matrix.task }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [test, mysqlTest]
+
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Check Docker engine
+        if: matrix.task == 'mysqlTest'
+        run: docker info
+
+      - name: Run tests
+        run: bash ./gradlew ${{ matrix.task }} --no-daemon --console=plain --stacktrace
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.task }}
+          path: |
+            build/reports/tests/${{ matrix.task }}/
+            build/test-results/${{ matrix.task }}/**/*.xml
+          if-no-files-found: warn
+          retention-days: 7
